@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dangles — League Coordination</title>
+<style>
+  :root{
+    --ice:#eef3f5; --board:#0f2d3d; --rink-blue:#1f5c73; --amber:#d98e04;
+    --line-red:#a3312c; --paper:#ffffff; --ink:#132228; --muted:#5c7681;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ice);color:var(--ink);font-family:var(--font-body);}
+  header{background:var(--board);color:var(--ice);padding:24px 20px 18px;position:relative;overflow:hidden;}
+  header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:repeating-linear-gradient(90deg, var(--line-red) 0 24px, transparent 24px 36px);opacity:.8;}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);font-weight:600;margin-bottom:6px;}
+  h1{font-family:var(--font-display);font-size:26px;margin:0 0 4px;}
+  .tagline{color:#b9cdd4;font-size:13px;margin:0;max-width:520px;}
+  .who{color:#fff;font-size:13px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;}
+  .who button{background:transparent;border:1px solid #3a5866;color:#cfe0e6;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+  nav{display:flex;background:var(--paper);border-bottom:1px solid #d7e0e3;position:sticky;top:0;z-index:10;overflow-x:auto;}
+  nav button{flex:1;min-width:80px;padding:14px 6px;border:none;background:transparent;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  nav button.active{color:var(--rink-blue);border-bottom-color:var(--amber);}
+  main{max-width:640px;margin:0 auto;padding:20px 16px 60px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .card{background:var(--paper);border:1px solid #dbe4e7;border-radius:10px;padding:16px;margin-bottom:12px;}
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px;}
+  .game-title{font-weight:700;font-size:15px;margin:0;}
+  .game-meta{font-size:13px;color:var(--muted);margin:2px 0 0;}
+  .badge{font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap;text-transform:uppercase;}
+  .badge.open{background:#fdecc8;color:#7a5300;}
+  .badge.filled{background:#dcefe3;color:#1f6b3d;}
+  .badge.needed{background:#f7d9d7;color:var(--line-red);}
+  .badge.role{background:#e4edf0;color:var(--rink-blue);}
+  button.action{background:var(--rink-blue);color:#fff;border:none;padding:9px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;margin-right:6px;}
+  button.action:hover{background:#164555;}
+  button.action.danger{background:transparent;color:var(--line-red);border:1px solid var(--line-red);}
+  button.action:disabled{background:#dcefe3;color:#1f6b3d;cursor:default;}
+  .section-title{font-family:var(--font-display);font-size:18px;margin:22px 0 10px;color:var(--board);}
+  .section-title span{font-size:12px;font-weight:400;color:var(--muted);font-family:var(--font-body);}
+  select, input[type=text], input[type=email], input[type=password]{width:100%;padding:9px 10px;border:1px solid #cdd9dd;border-radius:6px;font-size:14px;margin-top:4px;}
+  .field-label{font-size:12px;font-weight:600;color:var(--muted);margin-top:10px;display:block;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--board);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;text-align:center;max-width:90%;}
+  .toast.show{opacity:1;}
+  .locked-note{font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;}
+  .roster-tag{display:inline-block;background:#e4edf0;color:var(--rink-blue);font-size:12px;padding:3px 9px;border-radius:999px;margin:3px 4px 0 0;}
+  .add-row{display:flex;gap:6px;margin-top:10px;}
+  .add-row input{flex:1;margin-top:0;}
+  .add-row button{margin-top:0;white-space:nowrap;}
+  .auth-wrap{max-width:380px;margin:40px auto;padding:0 16px;}
+  .auth-tabs{display:flex;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid #dbe4e7;}
+  .auth-tabs button{flex:1;padding:10px;border:none;background:var(--paper);font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);}
+  .auth-tabs button.active{background:var(--rink-blue);color:#fff;}
+  .error-msg{color:var(--line-red);font-size:13px;margin-top:8px;min-height:16px;}
+  #app{display:none;}
+</style>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-wrap">
+  <div class="eyebrow" style="color:var(--rink-blue)">Dangles</div>
+  <h1 style="color:var(--board)">Sign in</h1>
+  <div class="auth-tabs">
+    <button id="tab-login" class="active">Log In</button>
+    <button id="tab-signup">Sign Up</button>
+  </div>
+
+  <div id="login-form">
+    <span class="field-label">Email</span>
+    <input type="email" id="login-email">
+    <span class="field-label">Password</span>
+    <input type="password" id="login-password">
+    <button class="action" style="width:100%;margin-top:14px;" onclick="doLogin()">Log In</button>
+  </div>
+
+  <div id="signup-form" style="display:none;">
+    <span class="field-label">Your name</span>
+    <input type="text" id="signup-name">
+    <span class="field-label">Email</span>
+    <input type="email" id="signup-email">
+    <span class="field-label">Password</span>
+    <input type="password" id="signup-password">
+    <span class="field-label">I am a...</span>
+    <select id="signup-role">
+      <option value="president">League President</option>
+      <option value="coach">Coach</option>
+      <option value="volunteer">Parent / Volunteer</option>
+    </select>
+    <button class="action" style="width:100%;margin-top:14px;" onclick="doSignup()">Create Account</button>
+  </div>
+
+  <p class="error-msg" id="auth-error"></p>
+</div>
+
+<div id="app">
+  <header>
+    <div class="eyebrow">Pembina Valley Region</div>
+    <h1>Dangles</h1>
+    <p class="tagline">Ice time, referees, rosters, and volunteers for small-town leagues.</p>
+    <div class="who">
+      <span id="who-am-i"></span>
+      <button onclick="doLogout()">Log out</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" data-tab="ice">Ice</button>
+    <button class="tab-btn" data-tab="teams">Teams</button>
+    <button class="tab-btn" data-tab="refs">Refs</button>
+    <button class="tab-btn" data-tab="vol">Volunteers</button>
+  </nav>
+
+  <main>
+    <div class="panel active" id="ice">
+      <div class="section-title">This Week's Ice <span>Carman Community Arena</span></div>
+      <div id="ice-list"></div>
+      <div id="ice-admin"></div>
+    </div>
+
+    <div class="panel" id="teams">
+      <div class="section-title">Teams &amp; Rosters</div>
+      <div id="teams-list"></div>
+      <div id="teams-admin"></div>
+    </div>
+
+    <div class="panel" id="refs">
+      <div class="section-title">Open Games <span>Tap to claim</span></div>
+      <div id="ref-list"></div>
+    </div>
+
+    <div class="panel" id="vol">
+      <div class="section-title">Volunteer Tasks</div>
+      <div id="vol-list"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let me = null;
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+async function api(path, opts={}) {
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: {'Content-Type':'application/json'},
+    credentials: 'include',
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+document.getElementById('tab-login').onclick = () => {
+  document.getElementById('tab-login').classList.add('active');
+  document.getElementById('tab-signup').classList.remove('active');
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('signup-form').style.display = 'none';
+};
+document.getElementById('tab-signup').onclick = () => {
+  document.getElementById('tab-signup').classList.add('active');
+  document.getElementById('tab-login').classList.remove('active');
+  document.getElementById('signup-form').style.display = 'block';
+  document.getElementById('login-form').style.display = 'none';
+};
+
+async function doLogin(){
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const data = await api('/api/login', { method:'POST', body:{email,password} });
+    me = data.user;
+    enterApp();
+  } catch(e) {
+    document.getElementById('auth-error').textContent = e.message;
+  }
+}
+
+async function doSignup(){
+  const name = document.getElementById('signup-name').value;
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+  const role = document.getElementById('signup-role').value;
+  try {
+    const data = await api('/api/signup', { method:'POST', body:{name,email,password,role} });
+    me = data.user;
+    enterApp();
+  } catch(e) {
+    document.getElementById('auth-error').textContent = e.message;
+  }
+}
+
+async function doLogout(){
+  await api('/api/logout', {method:'POST'});
+  me = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'block';
+}
+
+function enterApp(){
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('who-am-i').textContent = `${me.name} · ${me.role}`;
+  renderAll();
+}
+
+function isPresident(){ return me && me.role === 'president'; }
+function isCoach(){ return me && me.role === 'coach'; }
+
+// ---------- ICE ----------
+async function renderIce(){
+  const { games } = await api('/api/games');
+  const el = document.getElementById('ice-list');
+  el.innerHTML = '';
+  games.forEach(g=>{
+    const openRef = g.ref_name ? 0 : 1;
+    const openVol = g.volunteers.filter(v=>!v.filled).length;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head">
+        <div>
+          <p class="game-title">${g.home} vs ${g.away}</p>
+          <p class="game-meta">${g.division} · ${g.day_time}</p>
+        </div>
+        ${(openRef+openVol)===0 ? '<span class="badge filled">Fully Staffed</span>' : `<span class="badge needed">${openRef+openVol} open</span>`}
+      </div>
+      <p class="game-meta">Ref: ${g.ref_name || 'Unassigned'} · Volunteers filled: ${g.volunteers.length - openVol}/${g.volunteers.length}</p>
+      ${isPresident() ? `<button class="action danger" onclick="removeGame(${g.id})">Remove game</button>` : ''}
+    `;
+    el.appendChild(card);
+  });
+
+  const adminEl = document.getElementById('ice-admin');
+  adminEl.innerHTML = isPresident() ? `
+    <div class="section-title">Add a Game <span>President only</span></div>
+    <div class="card">
+      <span class="field-label">Home team</span><input type="text" id="new-home">
+      <span class="field-label">Away team</span><input type="text" id="new-away">
+      <span class="field-label">Day / Time</span><input type="text" id="new-time" placeholder="Sat 1:00 PM">
+      <button class="action" onclick="addGame()">Add to schedule</button>
+    </div>` : `<p class="locked-note">Only league presidents can add or remove games.</p>`;
+}
+
+async function addGame(){
+  const home = document.getElementById('new-home').value || 'Carman';
+  const away = document.getElementById('new-away').value || 'TBD';
+  const dayTime = document.getElementById('new-time').value || 'TBD';
+  await api('/api/games', {method:'POST', body:{home, away, dayTime}});
+  toast('Game added');
+  renderAll();
+}
+
+async function removeGame(id){
+  await api('/api/games/'+id, {method:'DELETE'});
+  toast('Game removed');
+  renderAll();
+}
+
+// ---------- TEAMS ----------
+async function renderTeams(){
+  const { teams } = await api('/api/teams');
+  const el = document.getElementById('teams-list');
+  el.innerHTML = '';
+  teams.forEach(team=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head">
+        <div>
+          <p class="game-title">${team.name}</p>
+          <p class="game-meta">Coach: ${team.coach_name || 'Unassigned'}</p>
+        </div>
+        <span class="badge role">${team.roster.length} players</span>
+      </div>
+      <div>${team.roster.map((p,idx)=>`<span class="roster-tag">${p} <span style="cursor:pointer;color:var(--line-red);" onclick="removePlayer(${team.id},${idx})">×</span></span>`).join('')}</div>
+      <div class="add-row">
+        <input type="text" id="add-player-${team.id}" placeholder="Add player name">
+        <button class="action" onclick="addPlayer(${team.id})">Add</button>
+      </div>
+      ${isPresident() ? `
+        <span class="field-label">Set coach (must have a coach account)</span>
+        <div class="add-row">
+          <input type="text" id="set-coach-${team.id}" placeholder="Coach's email">
+          <button class="action" onclick="setCoach(${team.id})">Set</button>
+        </div>` : ''}
+    `;
+    el.appendChild(card);
+  });
+
+  const adminEl = document.getElementById('teams-admin');
+  adminEl.innerHTML = isPresident() ? `
+    <div class="section-title">Add a Team <span>President only</span></div>
+    <div class="card">
+      <input type="text" id="new-team-name" placeholder="Team name">
+      <button class="action" onclick="addTeam()">Create team</button>
+    </div>` : '';
+}
+
+async function addTeam(){
+  const name = document.getElementById('new-team-name').value;
+  if(!name) return;
+  try { await api('/api/teams', {method:'POST', body:{name}}); toast('Team created'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function addPlayer(teamId){
+  const input = document.getElementById(`add-player-${teamId}`);
+  const name = input.value.trim();
+  if(!name) return;
+  try { await api(`/api/teams/${teamId}/players`, {method:'POST', body:{name}}); toast('Player added'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function removePlayer(teamId, idx){
+  try { await api(`/api/teams/${teamId}/players/${idx}`, {method:'DELETE'}); toast('Player removed'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function setCoach(teamId){
+  const input = document.getElementById(`set-coach-${teamId}`);
+  const coachEmail = input.value.trim();
+  if(!coachEmail) return;
+  try { await api(`/api/teams/${teamId}/coach`, {method:'POST', body:{coachEmail}}); toast('Coach set'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+// ---------- REFS ----------
+async function renderRefs(){
+  const { games } = await api('/api/games');
+  const el = document.getElementById('ref-list');
+  const open = games.filter(g=>!g.ref_name);
+  el.innerHTML = open.length===0 ? '<p class="locked-note">All games have a ref assigned.</p>' : '';
+  open.forEach(g=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head">
+        <div><p class="game-title">${g.home} vs ${g.away}</p><p class="game-meta">${g.division} · ${g.day_time} · Requires ${g.ref_cert}</p></div>
+        <span class="badge open">Open</span>
+      </div>
+      <button class="action" onclick="claimRef(${g.id})">Claim this game</button>
+    `;
+    el.appendChild(card);
+  });
+}
+
+async function claimRef(id){
+  try { await api(`/api/games/${id}/claim-ref`, {method:'POST'}); toast('You are on the ice for that one'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+// ---------- VOLUNTEERS ----------
+async function renderVol(){
+  const { games } = await api('/api/games');
+  const el = document.getElementById('vol-list');
+  el.innerHTML = '';
+  let any = false;
+  games.forEach(g=>{
+    g.volunteers.forEach((v, idx)=>{
+      if (v.filled) return;
+      any = true;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-head">
+          <div><p class="game-title">${v.task}</p><p class="game-meta">${g.home} vs ${g.away} · ${g.day_time}</p></div>
+          <span class="badge needed">Needed</span>
+        </div>
+        <button class="action" onclick="claimVol(${g.id}, ${idx})">Sign up</button>
+      `;
+      el.appendChild(card);
+    });
+  });
+  if(!any) el.innerHTML = '<p class="locked-note">Every task this week is covered.</p>';
+}
+
+async function claimVol(gameId, idx){
+  try { await api(`/api/games/${gameId}/volunteer/${idx}/claim`, {method:'POST'}); toast('Signed up'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function renderAll(){
+  await renderIce();
+  await renderTeams();
+  await renderRefs();
+  await renderVol();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Try to resume session on load
+(async () => {
+  try {
+    const data = await api('/api/me');
+    me = data.user;
+    enterApp();
+  } catch {
+    // not logged in, show auth screen (default)
+  }
+})();
+</script>
+</body>
+</html>
