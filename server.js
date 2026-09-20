@@ -16,7 +16,7 @@ const pool = new Pool({
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 // ---------- DATABASE SETUP ----------
 async function initDb() {
@@ -217,8 +217,7 @@ app.post('/api/games/:id/volunteer/:idx/claim', auth, async (req, res) => {
 });
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+res.sendFile(path.join(__dirname, 'index.html'));
 
 initDb()
   .then(() => app.listen(PORT, () => console.log(`Dangles running on port ${PORT}`)))
