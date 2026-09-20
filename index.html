@@ -111,6 +111,7 @@
     <button class="tab-btn" data-tab="teams">Teams</button>
     <button class="tab-btn" data-tab="refs">Refs</button>
     <button class="tab-btn" data-tab="vol">Volunteers</button>
+    <button class="tab-btn" data-tab="canteen">Canteen</button>
   </nav>
 
   <main>
@@ -134,6 +135,12 @@
     <div class="panel" id="vol">
       <div class="section-title">Volunteer Tasks</div>
       <div id="vol-list"></div>
+    </div>
+
+    <div class="panel" id="canteen">
+      <div class="section-title">Canteen Shifts <span>Kitchen / concession</span></div>
+      <div id="canteen-list"></div>
+      <div id="canteen-admin"></div>
     </div>
   </main>
 </div>
@@ -391,11 +398,60 @@ async function claimVol(gameId, idx){
   catch(e){ toast(e.message); }
 }
 
+// ---------- CANTEEN ----------
+async function renderCanteen(){
+  const { shifts } = await api('/api/canteen');
+  const el = document.getElementById('canteen-list');
+  el.innerHTML = '';
+  shifts.forEach(s=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-head">
+        <div><p class="game-title">${s.day_time}</p><p class="game-meta">${s.filled ? 'Covered by ' + s.volunteer_name : 'Needs a volunteer'}</p></div>
+        ${s.filled ? '<span class="badge filled">Filled</span>' : '<span class="badge needed">Open</span>'}
+      </div>
+      ${!s.filled ? `<button class="action" onclick="claimCanteen(${s.id})">Sign up</button>` : ''}
+      ${isPresident() ? `<button class="action danger" onclick="removeCanteen(${s.id})">Remove shift</button>` : ''}
+    `;
+    el.appendChild(card);
+  });
+
+  const adminEl = document.getElementById('canteen-admin');
+  adminEl.innerHTML = isPresident() ? `
+    <div class="section-title">Add a Shift <span>President only</span></div>
+    <div class="card">
+      <span class="field-label">Day / Time</span>
+      <input type="text" id="new-canteen-time" placeholder="e.g. Sat 8:00 AM - 12:00 PM">
+      <button class="action" onclick="addCanteen()">Add shift</button>
+    </div>` : '';
+}
+
+async function claimCanteen(id){
+  try { await api(`/api/canteen/${id}/claim`, {method:'POST'}); toast('Signed up for canteen shift'); renderAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function addCanteen(){
+  const dayTime = document.getElementById('new-canteen-time').value;
+  if(!dayTime) return;
+  await api('/api/canteen', {method:'POST', body:{dayTime}});
+  toast('Shift added');
+  renderAll();
+}
+
+async function removeCanteen(id){
+  await api('/api/canteen/'+id, {method:'DELETE'});
+  toast('Shift removed');
+  renderAll();
+}
+
 async function renderAll(){
   await renderIce();
   await renderTeams();
   await renderRefs();
   await renderVol();
+  await renderCanteen();
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
