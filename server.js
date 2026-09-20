@@ -45,6 +45,12 @@ async function initDb() {
       ref_cert TEXT,
       volunteers JSONB NOT NULL DEFAULT '[]'
     );
+    CREATE TABLE IF NOT EXISTS canteen_shifts (
+      id SERIAL PRIMARY KEY,
+      day_time TEXT NOT NULL,
+      filled BOOLEAN NOT NULL DEFAULT false,
+      volunteer_name TEXT
+    );
   `);
 
   const { rows } = await pool.query('SELECT COUNT(*)::int AS c FROM games');
@@ -55,6 +61,16 @@ async function initDb() {
         '[{"task":"Timekeeper","filled":false,"name":null},{"task":"Scorekeeper","filled":false,"name":null}]'),
       ('Adult Rec','Carman','Roland','Sun 6:30 PM', NULL, 'Level 1',
         '[{"task":"Timekeeper","filled":false,"name":null}]')
+    `);
+  }
+
+  const { rows: canteenRows } = await pool.query('SELECT COUNT(*)::int AS c FROM canteen_shifts');
+  if (canteenRows[0].c === 0) {
+    await pool.query(`
+      INSERT INTO canteen_shifts (day_time) VALUES
+      ('Sat 8:00 AM - 12:00 PM'),
+      ('Sat 12:00 PM - 4:00 PM'),
+      ('Sun 6:00 PM - 9:00 PM')
     `);
   }
 }
@@ -216,9 +232,33 @@ app.post('/api/games/:id/volunteer/:idx/claim', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- CANTEEN ----------
+app.get('/api/canteen', auth, async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM canteen_shifts ORDER BY id');
+  res.json({ shifts: rows });
+});
+
+app.post('/api/canteen', auth, requireRole('president'), async (req, res) => {
+  const { dayTime } = req.body;
+  const { rows } = await pool.query('INSERT INTO canteen_shifts (day_time) VALUES ($1) RETURNING *', [dayTime]);
+  res.json({ shift: rows[0] });
+});
+
+app.delete('/api/canteen/:id', auth, requireRole('president'), async (req, res) => {
+  await pool.query('DELETE FROM canteen_shifts WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+app.post('/api/canteen/:id/claim', auth, async (req, res) => {
+  const { rows } = await pool.query('SELECT filled FROM canteen_shifts WHERE id=$1', [req.params.id]);
+  if (rows[0].filled) return res.status(409).json({ error: 'That shift is already taken' });
+  await pool.query('UPDATE canteen_shifts SET filled=true, volunteer_name=$1 WHERE id=$2', [req.user.name, req.params.id]);
+  res.json({ ok: true });
+});
+
 app.get('*', (req, res) => {
-res.sendFile(path.join(__dirname, 'index.html'));
-  });
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 initDb()
   .then(() => app.listen(PORT, () => console.log(`Dangles running on port ${PORT}`)))
