@@ -218,6 +218,7 @@ app.post('/api/games/:id/volunteer/:idx/claim', auth, async (req, res) => {
 
 app.get('*', (req, res) => {
 res.sendFile(path.join(__dirname, 'index.html'));
+  });
 
 initDb()
   .then(() => app.listen(PORT, () => console.log(`Dangles running on port ${PORT}`)))
